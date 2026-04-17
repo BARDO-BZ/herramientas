@@ -2,6 +2,7 @@ import { list, del } from '@vercel/blob'
 import { auth } from '@/lib/auth'
 import { blobFetch } from '@/lib/blob'
 import { NextResponse } from 'next/server'
+import { loadIndex, saveIndex } from '../route'
 
 async function findPresentationBlob(id: string) {
   const { blobs } = await list({ prefix: `presentations/${id}.json` })
@@ -14,8 +15,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!blob) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const res = await blobFetch(blob.url)
-  const presentation = await res.json()
-  return NextResponse.json(presentation)
+  return NextResponse.json(await res.json())
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -34,6 +34,10 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     if (commentBlobs[0]) await del(commentBlobs[0].url)
 
     await del(blob.url)
+
+    // Remove from index
+    const index = await loadIndex()
+    await saveIndex(index.filter((p) => p.id !== id))
   }
 
   return NextResponse.json({ ok: true })

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -93,6 +93,14 @@ export function PresentationEditor({ initial }: Props) {
     setSaveState('saved')
     setTimeout(() => setSaveState('idle'), 2000)
   }, [presentation])
+
+  // Autosave every 3 minutes if there are unsaved changes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (saveState === 'idle') handleSave()
+    }, 3 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [saveState, handleSave])
 
   const shareUrl =
     typeof window !== 'undefined'
