@@ -17,9 +17,8 @@ function getGridStyle(divisions: 2 | 3 | 4 | 6 | 9): { cols: number; rows: numbe
 
 export function VariantsSlide({ slide, presentation }: Props) {
   const { cols, rows } = getGridStyle(slide.divisions)
-  const headerH = 56
   const cellW = SLIDE_W / cols
-  const cellH = (SLIDE_H - headerH) / rows
+  const cellH = SLIDE_H / rows
 
   return (
     <div
@@ -42,7 +41,7 @@ export function VariantsSlide({ slide, presentation }: Props) {
       <div
         style={{
           position: 'absolute',
-          top: headerH,
+          top: 0,
           left: 0,
           right: 0,
           bottom: 0,
