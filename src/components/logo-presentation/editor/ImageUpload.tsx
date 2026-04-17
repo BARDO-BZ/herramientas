@@ -1,25 +1,34 @@
 'use client'
 
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { Label } from '@/components/ui/label'
 
 interface ImageUploadProps {
   label: string
   value: string
-  onChange: (base64: string) => void
+  onChange: (url: string) => void
   onClear?: () => void
 }
 
 export function ImageUpload({ label, value, onChange, onClear }: ImageUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => onChange(reader.result as string)
-    reader.readAsDataURL(file)
     e.target.value = ''
+
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (data.url) onChange(data.url)
+    } finally {
+      setUploading(false)
+    }
   }
 
   return (
@@ -29,9 +38,10 @@ export function ImageUpload({ label, value, onChange, onClear }: ImageUploadProp
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="flex-1 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100 transition text-left truncate"
+          disabled={uploading}
+          className="flex-1 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100 transition text-left truncate disabled:opacity-50"
         >
-          {value ? 'Reemplazar imagen' : 'Subir imagen (SVG, PNG, JPG)'}
+          {uploading ? 'Subiendo...' : value ? 'Reemplazar imagen' : 'Subir imagen (SVG, PNG, JPG)'}
         </button>
         {value && onClear && (
           <button

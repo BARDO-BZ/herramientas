@@ -3,13 +3,27 @@ import type {
   Slide,
   SlideType,
   VariantsSlide,
+  Folder,
 } from '@/types/presentation'
 
 const STORAGE_KEY = 'bardo-presentations'
+const FOLDERS_KEY = 'bardo-folders'
 
 function generateId(): string {
   return crypto.randomUUID()
 }
+
+export function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60)
+}
+
+// ── Presentations ────────────────────────────────────────
 
 export function loadPresentations(): Presentation[] {
   if (typeof window === 'undefined') return []
@@ -40,8 +54,10 @@ export function deletePresentation(id: string): void {
 }
 
 export function createPresentation(): Presentation {
+  const id = generateId()
   return {
-    id: generateId(),
+    id,
+    slug: id,
     name: 'Nueva presentación',
     headerLeft: 'Bardo',
     headerRight: 'Propuesta de identidad visual',
@@ -50,6 +66,42 @@ export function createPresentation(): Presentation {
     updatedAt: new Date().toISOString(),
   }
 }
+
+// ── Folders ──────────────────────────────────────────────
+
+export function loadFolders(): Folder[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const data = localStorage.getItem(FOLDERS_KEY)
+    return data ? JSON.parse(data) : []
+  } catch {
+    return []
+  }
+}
+
+export function saveFolder(folder: Folder): void {
+  const all = loadFolders()
+  const idx = all.findIndex((f) => f.id === folder.id)
+  if (idx >= 0) all[idx] = folder
+  else all.push(folder)
+  localStorage.setItem(FOLDERS_KEY, JSON.stringify(all))
+}
+
+export function deleteFolder(id: string): void {
+  const all = loadFolders().filter((f) => f.id !== id)
+  localStorage.setItem(FOLDERS_KEY, JSON.stringify(all))
+  // Move presentations out of deleted folder
+  const presentations = loadPresentations().map((p) =>
+    p.folderId === id ? { ...p, folderId: undefined } : p
+  )
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(presentations))
+}
+
+export function createFolder(name: string): Folder {
+  return { id: generateId(), name, createdAt: new Date().toISOString() }
+}
+
+// ── Slides ───────────────────────────────────────────────
 
 function sectionsForDivisions(n: number) {
   return Array.from({ length: n }, () => ({ backgroundColor: '#f5f5f5', image: '' }))
@@ -122,7 +174,7 @@ export function addLogoItem(): import('@/types/presentation').LogoItem {
 }
 
 export function sectionsForVariantDivisions(
-  divisions: 2 | 3 | 6 | 9,
+  divisions: 2 | 3 | 4 | 6 | 9,
   existing: import('@/types/presentation').VariantSection[]
 ): import('@/types/presentation').VariantSection[] {
   const result = sectionsForDivisions(divisions)

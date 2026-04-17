@@ -7,9 +7,10 @@ interface Props {
   presentation: Pick<Presentation, 'headerLeft' | 'headerRight'>
 }
 
-function getGridStyle(divisions: 2 | 3 | 6 | 9): { cols: number; rows: number } {
+function getGridStyle(divisions: 2 | 3 | 4 | 6 | 9): { cols: number; rows: number } {
   if (divisions === 2) return { cols: 2, rows: 1 }
   if (divisions === 3) return { cols: 3, rows: 1 }
+  if (divisions === 4) return { cols: 2, rows: 2 }
   if (divisions === 6) return { cols: 3, rows: 2 }
   return { cols: 3, rows: 3 }
 }

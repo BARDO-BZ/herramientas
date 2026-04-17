@@ -1,7 +1,7 @@
 import { list } from '@vercel/blob'
 import { notFound } from 'next/navigation'
 import type { Presentation } from '@/types/presentation'
-import { PresentationViewer } from '@/components/logo-presentation/PresentationViewer'
+import { PrintView } from '@/components/logo-presentation/PrintView'
 import { blobFetch } from '@/lib/blob'
 
 async function fetchBySlug(slug: string): Promise<Presentation | null> {
@@ -9,7 +9,6 @@ async function fetchBySlug(slug: string): Promise<Presentation | null> {
     const { blobs: slugBlobs } = await list({ prefix: `slugs/${slug}.json` })
     if (!slugBlobs[0]) return null
     const { id } = await blobFetch(slugBlobs[0].url).then((r) => r.json())
-
     const { blobs } = await list({ prefix: `presentations/${id}.json` })
     if (!blobs[0]) return null
     return blobFetch(blobs[0].url).then((r) => r.json())
@@ -18,14 +17,9 @@ async function fetchBySlug(slug: string): Promise<Presentation | null> {
   }
 }
 
-export default async function PublicPresentationPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>
-}) {
+export default async function PrintPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const presentation = await fetchBySlug(slug)
   if (!presentation) notFound()
-
-  return <PresentationViewer presentation={presentation} />
+  return <PrintView presentation={presentation} slug={slug} />
 }

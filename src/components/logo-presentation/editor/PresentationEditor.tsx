@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator'
 import { ScaledSlide } from '../ScaledSlide'
 import { SlideRenderer } from '../SlideRenderer'
 import { SlideEditorPanel } from './SlideEditorPanel'
-import { savePresentation, createDefaultSlide, SLIDE_TYPE_LABELS } from '@/lib/presentation'
+import { savePresentation, createDefaultSlide, SLIDE_TYPE_LABELS, slugify } from '@/lib/presentation'
 import type { Presentation, Slide, SlideType } from '@/types/presentation'
 
 const SLIDE_TYPES = Object.entries(SLIDE_TYPE_LABELS) as [SlideType, string][]
@@ -20,17 +20,23 @@ interface Props {
 export function PresentationEditor({ initial }: Props) {
   const router = useRouter()
   const [presentation, setPresentation] = useState<Presentation>(initial)
-  const [selectedId, setSelectedId] = useState<string | null>(
-    initial.slides[0]?.id ?? null
-  )
+  const previousSlugRef = useRef<string>(initial.slug)
+  const [selectedId, setSelectedId] = useState<string | null>(initial.slides[0]?.id ?? null)
   const [addingSlide, setAddingSlide] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'slug_taken'>('idle')
+  const [slugError, setSlugError] = useState(false)
 
   const selectedSlide = presentation.slides.find((s) => s.id === selectedId) ?? null
 
   function updatePresentation(partial: Partial<Presentation>) {
     setPresentation((p) => ({ ...p, ...partial }))
-    setSaved(false)
+    setSaveState('idle')
+  }
+
+  function handleSlugChange(raw: string) {
+    const clean = slugify(raw) || presentation.id
+    setSlugError(false)
+    updatePresentation({ slug: clean })
   }
 
   function addSlide(type: SlideType) {
@@ -50,9 +56,7 @@ export function PresentationEditor({ initial }: Props) {
   function deleteSlide(id: string) {
     const slides = presentation.slides.filter((s) => s.id !== id)
     updatePresentation({ slides })
-    if (selectedId === id) {
-      setSelectedId(slides[0]?.id ?? null)
-    }
+    if (selectedId === id) setSelectedId(slides[0]?.id ?? null)
   }
 
   function moveSlide(id: string, dir: -1 | 1) {
@@ -65,21 +69,46 @@ export function PresentationEditor({ initial }: Props) {
     updatePresentation({ slides })
   }
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
+    setSaveState('saving')
+    setSlugError(false)
+
+    const res = await fetch('/api/presentations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        presentation,
+        previousSlug: previousSlugRef.current,
+      }),
+    })
+
+    if (res.status === 409) {
+      setSaveState('slug_taken')
+      setSlugError(true)
+      return
+    }
+
     savePresentation(presentation)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+    previousSlugRef.current = presentation.slug
+    setSaveState('saved')
+    setTimeout(() => setSaveState('idle'), 2000)
   }, [presentation])
 
   const shareUrl =
     typeof window !== 'undefined'
-      ? `${window.location.origin}/p/${presentation.id}`
-      : `/p/${presentation.id}`
+      ? `${window.location.origin}/p/${presentation.slug}`
+      : `/p/${presentation.slug}`
+
+  const saveLabel =
+    saveState === 'saving' ? 'Guardando...' :
+    saveState === 'saved' ? 'Guardado ✓' :
+    saveState === 'slug_taken' ? 'URL ocupada' :
+    'Guardar'
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-zinc-50">
       {/* Top bar */}
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-zinc-200 bg-white px-4 gap-4">
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-zinc-200 bg-white px-4 gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <button
             type="button"
@@ -91,25 +120,27 @@ export function PresentationEditor({ initial }: Props) {
           <Input
             value={presentation.name}
             onChange={(e) => updatePresentation({ name: e.target.value })}
-            className="h-8 text-sm font-medium border-0 shadow-none focus-visible:ring-0 px-1 min-w-0 w-56"
+            className="h-8 text-sm font-medium border-0 shadow-none focus-visible:ring-0 px-1 w-48"
           />
         </div>
 
-        <div className="flex items-center gap-6 shrink-0">
+        <div className="flex items-center gap-4 shrink-0">
           <div className="flex items-center gap-2">
             <Label className="text-xs text-zinc-400 whitespace-nowrap">Header izq.</Label>
-            <Input
-              value={presentation.headerLeft}
-              onChange={(e) => updatePresentation({ headerLeft: e.target.value })}
-              className="h-7 w-28 text-xs"
-            />
+            <Input value={presentation.headerLeft} onChange={(e) => updatePresentation({ headerLeft: e.target.value })} className="h-7 w-24 text-xs" />
           </div>
           <div className="flex items-center gap-2">
             <Label className="text-xs text-zinc-400 whitespace-nowrap">Header der.</Label>
+            <Input value={presentation.headerRight} onChange={(e) => updatePresentation({ headerRight: e.target.value })} className="h-7 w-36 text-xs" />
+          </div>
+          <Separator orientation="vertical" className="h-6" />
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-zinc-400 whitespace-nowrap">/p/</span>
             <Input
-              value={presentation.headerRight}
-              onChange={(e) => updatePresentation({ headerRight: e.target.value })}
-              className="h-7 w-40 text-xs"
+              value={presentation.slug}
+              onChange={(e) => handleSlugChange(e.target.value)}
+              className={`h-7 w-36 text-xs font-mono ${slugError ? 'border-red-400 focus-visible:ring-red-300' : ''}`}
+              placeholder="mi-cliente-v1"
             />
           </div>
         </div>
@@ -117,9 +148,7 @@ export function PresentationEditor({ initial }: Props) {
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
-            onClick={() => {
-              navigator.clipboard.writeText(shareUrl)
-            }}
+            onClick={() => navigator.clipboard.writeText(shareUrl)}
             className="rounded-md border border-zinc-200 px-3 py-1.5 text-xs text-zinc-600 hover:bg-zinc-50 transition"
           >
             Copiar link
@@ -127,9 +156,10 @@ export function PresentationEditor({ initial }: Props) {
           <button
             type="button"
             onClick={handleSave}
-            className="rounded-md bg-zinc-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 transition"
+            disabled={saveState === 'saving'}
+            className={`rounded-md px-4 py-1.5 text-xs font-medium text-white transition disabled:opacity-60 ${saveState === 'slug_taken' ? 'bg-red-500 hover:bg-red-600' : 'bg-zinc-900 hover:bg-zinc-700'}`}
           >
-            {saved ? 'Guardado ✓' : 'Guardar'}
+            {saveLabel}
           </button>
         </div>
       </header>
@@ -143,47 +173,21 @@ export function PresentationEditor({ initial }: Props) {
                 key={slide.id}
                 onClick={() => setSelectedId(slide.id)}
                 className={`group relative cursor-pointer rounded-md overflow-hidden border-2 transition ${
-                  selectedId === slide.id
-                    ? 'border-zinc-900'
-                    : 'border-zinc-100 hover:border-zinc-300'
+                  selectedId === slide.id ? 'border-zinc-900' : 'border-zinc-100 hover:border-zinc-300'
                 }`}
               >
                 <ScaledSlide>
                   <SlideRenderer slide={slide} presentation={presentation} />
                 </ScaledSlide>
-                <div className="absolute bottom-1 left-1.5 text-[9px] text-zinc-400 bg-white/80 rounded px-1">
-                  {idx + 1}
-                </div>
+                <div className="absolute bottom-1 left-1.5 text-[9px] text-zinc-400 bg-white/80 rounded px-1">{idx + 1}</div>
                 <div className="absolute top-1 right-1 hidden group-hover:flex items-center gap-0.5 bg-white/90 rounded px-1 py-0.5">
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); moveSlide(slide.id, -1) }}
-                    className="text-[10px] text-zinc-400 hover:text-zinc-700"
-                    title="Mover arriba"
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); moveSlide(slide.id, 1) }}
-                    className="text-[10px] text-zinc-400 hover:text-zinc-700"
-                    title="Mover abajo"
-                  >
-                    ↓
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); deleteSlide(slide.id) }}
-                    className="text-[10px] text-red-300 hover:text-red-500 ml-0.5"
-                    title="Eliminar"
-                  >
-                    ✕
-                  </button>
+                  <button type="button" onClick={(e) => { e.stopPropagation(); moveSlide(slide.id, -1) }} className="text-[10px] text-zinc-400 hover:text-zinc-700">↑</button>
+                  <button type="button" onClick={(e) => { e.stopPropagation(); moveSlide(slide.id, 1) }} className="text-[10px] text-zinc-400 hover:text-zinc-700">↓</button>
+                  <button type="button" onClick={(e) => { e.stopPropagation(); deleteSlide(slide.id) }} className="text-[10px] text-red-300 hover:text-red-500 ml-0.5">✕</button>
                 </div>
               </div>
             ))}
 
-            {/* Add slide */}
             {!addingSlide ? (
               <button
                 type="button"
@@ -205,13 +209,7 @@ export function PresentationEditor({ initial }: Props) {
                     {label}
                   </button>
                 ))}
-                <button
-                  type="button"
-                  onClick={() => setAddingSlide(false)}
-                  className="mt-1 text-xs text-zinc-400 hover:text-zinc-600 transition"
-                >
-                  Cancelar
-                </button>
+                <button type="button" onClick={() => setAddingSlide(false)} className="mt-1 text-xs text-zinc-400 hover:text-zinc-600 transition">Cancelar</button>
               </div>
             )}
           </div>
@@ -226,9 +224,7 @@ export function PresentationEditor({ initial }: Props) {
               </ScaledSlide>
             </div>
           ) : (
-            <div className="text-sm text-zinc-400">
-              Agregá un slide para empezar
-            </div>
+            <div className="text-sm text-zinc-400">Agregá un slide para empezar</div>
           )}
         </main>
 

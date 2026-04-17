@@ -287,7 +287,7 @@ function VariantsFields({
   slide: VariantsSlide
   onChange: (s: VariantsSlide) => void
 }) {
-  const divOptions: Array<2 | 3 | 6 | 9> = [2, 3, 6, 9]
+  const divOptions: Array<2 | 3 | 4 | 6 | 9> = [2, 3, 4, 6, 9]
 
   function changeDivisions(val: string | null) {
     if (!val) return
@@ -321,7 +321,7 @@ function VariantsFields({
           <SelectContent>
             {divOptions.map((d) => (
               <SelectItem key={d} value={String(d)}>
-                {d} {d === 6 ? '(2×3)' : d === 9 ? '(3×3)' : ''}
+                {d} {d === 4 ? '(2×2)' : d === 6 ? '(2×3)' : d === 9 ? '(3×3)' : ''}
               </SelectItem>
             ))}
           </SelectContent>

@@ -51,7 +51,7 @@ export interface VariantSection {
 
 export interface VariantsSlide extends BaseSlide {
   type: 'variants'
-  divisions: 2 | 3 | 6 | 9
+  divisions: 2 | 3 | 4 | 6 | 9
   sections: VariantSection[]
 }
 
@@ -84,10 +84,28 @@ export type Slide =
 
 export interface Presentation {
   id: string
+  slug: string
   name: string
   headerLeft: string
   headerRight: string
+  folderId?: string
   slides: Slide[]
   createdAt: string
   updatedAt: string
+}
+
+export interface Folder {
+  id: string
+  name: string
+  createdAt: string
+}
+
+export interface Comment {
+  id: string
+  slideId: string
+  author: string
+  text: string
+  x: number
+  y: number
+  createdAt: string
 }
