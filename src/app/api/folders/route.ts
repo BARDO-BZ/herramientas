@@ -14,6 +14,7 @@ async function loadFolderIndex(): Promise<Folder[]> {
 async function saveFolderIndex(folders: Folder[]) {
   await put('folders/index.json', JSON.stringify(folders), {
     access: 'private',
+    allowOverwrite: true,
     addRandomSuffix: false,
     contentType: 'application/json',
   })

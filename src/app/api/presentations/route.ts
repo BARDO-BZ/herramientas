@@ -22,6 +22,7 @@ async function loadIndex(): Promise<PresentationSummary[]> {
 async function saveIndex(items: PresentationSummary[]) {
   await put('presentations/index.json', JSON.stringify(items), {
     access: 'private',
+    allowOverwrite: true,
     addRandomSuffix: false,
     contentType: 'application/json',
   })
@@ -63,14 +64,14 @@ export async function POST(req: Request) {
   await put(
     `slugs/${presentation.slug}.json`,
     JSON.stringify({ id: presentation.id }),
-    { access: 'private', addRandomSuffix: false, contentType: 'application/json' }
+    { access: 'private', allowOverwrite: true, addRandomSuffix: false, contentType: 'application/json' }
   )
 
   // Save full presentation
   await put(
     `presentations/${presentation.id}.json`,
     JSON.stringify(presentation),
-    { access: 'private', addRandomSuffix: false, contentType: 'application/json' }
+    { access: 'private', allowOverwrite: true, addRandomSuffix: false, contentType: 'application/json' }
   )
 
   // Update index

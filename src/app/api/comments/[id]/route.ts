@@ -14,7 +14,7 @@ async function saveComments(presentationId: string, comments: Comment[]) {
   await put(
     `comments/${presentationId}.json`,
     JSON.stringify(comments),
-    { access: 'private', addRandomSuffix: false, contentType: 'application/json' }
+    { access: 'private', allowOverwrite: true, addRandomSuffix: false, contentType: 'application/json' }
   )
 }
 
